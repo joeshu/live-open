@@ -40,4 +40,4 @@ The source workspace is kept separate from this deployment-only repository. On a
 
 `all.m3u` is generated in IPTV M3U format: every `#EXTINF` is followed by the absolute signed Migu HLS playlist URL (not a Pages wrapper URI). The static channel `.m3u8` files are diagnostic mirrors. The generator uses the encrypted core catalog; channels blocked by `COPYRIGHT_SHIELD_INVALID` are skipped, while transient failures abort publication and preserve the previous Pages snapshot.
 
-The scheduled workflow uses a self-hosted Linux x64 runner because GitHub-hosted runners cannot reach Migu playback APIs. Register a runner under Settings → Actions → Runners on a server with Migu network access before expecting scheduled runs.
+GitHub-hosted runner was tested twice and could not reach Migu APIs (`Network is unreachable`). To avoid burning Actions minutes on hourly failures, cron is currently disabled; `workflow_dispatch` is retained with a fast network preflight. Use direct local/server generation until a runner with Migu network access is available.
