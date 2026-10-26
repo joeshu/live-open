@@ -5,8 +5,9 @@ This repository contains only the encrypted playback core and deployment wrapper
 ## Required GitHub Actions secrets
 
 - `MIGU_CORE_KEY`: same strong passphrase used to create `migu_core.enc` (required).
-- Optional overrides `MIGU_CLIENT_ID`, `MIGU_DEVICE_ID`: if omitted, the encrypted core uses its packaged defaults.
-- Optional `MIGU_ACCOUNT_HEADERS_JSON`: JSON object containing the current App request-header snapshot, including the session-level `sign` header. Refresh after a new logged-in capture; never put it in a file committed to Git.
+- Optional `MIGU_USER_ID` and `MIGU_USER_TOKEN`: can override the account values after the current session snapshot is imported.
+- Optional `MIGU_ACCOUNT_HEADERS_JSON`: the current account header snapshot, including `UserInfo` and session `sign`. User ID/token alone cannot authenticate; the signer and UserInfo are reused from this snapshot. After importing a fresh HAR locally, the helper can upload UserId, UserToken, and the matching complete header snapshot without printing values; the snapshot preserves UserInfo/sign for the same session.
+- Optional `MIGU_CLIENT_ID`, `MIGU_DEVICE_ID`: if omitted, the encrypted core uses its packaged defaults.
 
 The encrypted bytecode is compiled for CPython 3.12; both workflows pin Python 3.12.
 

@@ -34,6 +34,8 @@ jobs:
           MIGU_CORE_KEY: ${{ secrets.MIGU_CORE_KEY }}
           MIGU_CLIENT_ID: ${{ secrets.MIGU_CLIENT_ID }}
           MIGU_DEVICE_ID: ${{ secrets.MIGU_DEVICE_ID }}
+          MIGU_USER_ID: ${{ secrets.MIGU_USER_ID }}
+          MIGU_USER_TOKEN: ${{ secrets.MIGU_USER_TOKEN }}
           MIGU_ACCOUNT_HEADERS_JSON: ${{ secrets.MIGU_ACCOUNT_HEADERS_JSON }}
           MIGU_QUALITY: auto
           OUT_DIR: ./out
