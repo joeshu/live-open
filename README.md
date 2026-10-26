@@ -36,3 +36,8 @@ Output playlists contain short-lived upstream URLs. Keep `/srv/migu` private. `M
 The source workspace is kept separate from this deployment-only repository. On a trusted Python 3.12 machine with the same `MIGU_CORE_KEY`, run `python3.12 ci/pack.py` in the full source project, then replace `migu_core.enc` here. Do not copy source files or `.migu-account.json` into this repo.
 
 `migu_core.enc` uses AES-256-GCM with PBKDF2-HMAC-SHA256 (200,000 rounds). Core Python modules are bytecode inside the encrypted envelope; bytecode is reversible, so key secrecy is the actual protection. Runtime decryption occurs in a temporary directory and cannot protect against a host administrator who controls the running container.
+
+
+`all.m3u` is generated in IPTV M3U format: every `#EXTINF` is followed by the absolute signed Migu HLS playlist URL (not a Pages wrapper URI). The static channel `.m3u8` files are diagnostic mirrors. The generator uses the encrypted core catalog; channels blocked by `COPYRIGHT_SHIELD_INVALID` are skipped, while transient failures abort publication and preserve the previous Pages snapshot.
+
+The scheduled workflow uses a self-hosted Linux x64 runner because GitHub-hosted runners cannot reach Migu playback APIs. Register a runner under Settings → Actions → Runners on a server with Migu network access before expecting scheduled runs.

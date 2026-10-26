@@ -16,7 +16,7 @@ from urllib.parse import urljoin
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 OUT = Path(os.environ.get('OUT_DIR', str(ROOT / 'out')))
-CHANNELS = json.loads((Path(__file__).parent / 'channels.json').read_text())
+PUBLIC_BASE = os.environ.get('PUBLIC_BASE', 'https://joeshu.github.io/live-open/').rstrip('/') + '/'
 
 
 def load_core():
@@ -74,6 +74,11 @@ def main():
         return 2
     try:
         m = load_core()
+        # A static playlist has no adaptive codec fallback; default to H.264 for wider player compatibility.
+        m.QUALITY_MODE = os.environ.get('MIGU_QUALITY', 'compat')
+        channels = m.load_channels()
+        if not channels:
+            raise RuntimeError('empty channel catalog')
         client_id, device_id = m._defaults()
         resolver = m.Resolver(client_id, device_id,
                               ttl=float(os.environ.get('MIGU_TTL', '3600')))
@@ -81,32 +86,40 @@ def main():
         print('core_load_failed:', type(e).__name__)
         return 2
     OUT.mkdir(parents=True, exist_ok=True)
-    ok, failed = [], 0
-    for channel in CHANNELS:
+    ok, failed, fatal = [], 0, 0
+    for channel in channels:
         cid, name = str(channel['id']), channel['name']
         try:
             sub, playlist = resolver.get(cid, force=True)
             text = absolute_playlist(sub, playlist)
             atomic_write(OUT / (cid + '.m3u8'), text)
-            ok.append((cid, name))
+            ok.append((cid, name, sub))
             print('OK', cid)   # Never print signed URL or response body.
         except Exception as e:
             failed += 1
+            detail = str(e)
+            blocked = 'COPYRIGHT_SHIELD_INVALID' in detail
+            fatal += 0 if blocked else 1
             stage = getattr(e, 'stage', 'upstream')
-            code = str(getattr(e, 'code', type(e).__name__))
+            code = 'COPYRIGHT_SHIELD_INVALID' if blocked else str(getattr(e, 'code', type(e).__name__))
             code = re.sub(r'[^A-Za-z0-9_-]', '', code)[:40]
-            print('ERR', cid, str(stage)[:24], code)
+            print('SKIP' if blocked else 'ERR', cid, str(stage)[:24], code)
     if not ok:
-        print('summary 0', len(CHANNELS), 'failed', failed, '- previous index retained')
+        print('summary 0', len(channels), 'failed', failed, '- previous index retained')
+        return 1
+    if fatal:
+        print('summary', len(ok), len(channels), 'blocked', failed - fatal,
+              'transient_failed', fatal, '- refusing to publish incomplete snapshot')
         return 1
     lines = ['#EXTM3U']
-    for cid, name in ok:
-        lines.extend((f'#EXTINF:-1 tvg-id="{cid}" group-title="咪咕",{name}', cid + '.m3u8'))
+    for cid, name, sub in ok:
+        safe_name = name.replace('"', '&quot;')
+        lines.extend((f'#EXTINF:-1 tvg-id="{cid}" tvg-name="{safe_name}" group-title="咪咕",{safe_name}', sub))
     atomic_write(OUT / 'all.m3u', '\n'.join(lines) + '\n')
     atomic_write(OUT / 'index.html', '<meta charset="utf-8"><title>Migu HLS</title><ul>' +
-                 ''.join(f'<li><a href="{cid}.m3u8">{name}</a></li>' for cid, name in ok) +
+                 ''.join(f'<li><a href="{cid}.m3u8">{name}</a></li>' for cid, name, _ in ok) +
                  '</ul><p>generated UTC ' + time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()) + '</p>')
-    print('summary', len(ok), len(CHANNELS), 'failed', failed)
+    print('summary', len(ok), len(channels), 'failed', failed)
     return 0 if ok else 1
 
 

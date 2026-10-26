@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64]
     environment: MIGU_CORE_KEY
     timeout-minutes: 20
     steps:
@@ -38,7 +38,8 @@ jobs:
           MIGU_USER_ID: ${{ secrets.MIGU_USER_ID }}
           MIGU_USER_TOKEN: ${{ secrets.MIGU_USER_TOKEN }}
           MIGU_ACCOUNT_HEADERS_JSON: ${{ secrets.MIGU_ACCOUNT_HEADERS_JSON }}
-          MIGU_QUALITY: auto
+          MIGU_QUALITY: compat
+          PUBLIC_BASE: https://joeshu.github.io/live-open/
           OUT_DIR: ./out
         run: |
           test -n "$MIGU_CORE_KEY"
