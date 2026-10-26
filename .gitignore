@@ -1,0 +1,27 @@
+# 明文敏感文件（由 ci/pack.py 加密到 migu_core.enc）
+phone-sign-keys.json
+sign-keys.json
+ddcalcu_py.py
+migu_play.py
+playurl-headers.json
+playurl-template.json
+migu-catalog.json
+
+# 生成产物
+out/
+*.m3u8
+__pycache__/
+*.pyc
+
+# 本机账号凭据（不入库、不入研究包）
+.migu-account.json
+
+# 部署仓库只提交 AES-GCM 加密核心包；明文实现留在受控工作区
+migu_live.py
+migu_live_plugin.py
+migu_fetch.py
+migu_sign.py
+sign_tool.py
+migu_web_url.py
+evidence_audit.py
+verify_pair*.py

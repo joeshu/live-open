@@ -1,0 +1,11 @@
+# Never include local sessions, raw captures, or generated output in Docker context.
+.migu-account.json
+*.har
+*.ipa
+*.wasm
+*.dylib
+__pycache__/
+.git/
+out/
+research/
+attachments/

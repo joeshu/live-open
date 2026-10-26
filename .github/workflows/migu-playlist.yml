@@ -1,0 +1,53 @@
+name: migu-playlist
+
+on:
+  schedule:
+    - cron: '15 * * * *'   # signed URLs live about 1-3h; refresh hourly
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: migu-playlist
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Verify encrypted core exists
+        run: test -s migu_core.enc
+
+      - name: Install decrypt dependency
+        run: python -m pip install --disable-pip-version-check --no-cache-dir 'cryptography>=44,<47'
+
+      - name: Generate short-lived playlists
+        env:
+          MIGU_CORE_KEY: ${{ secrets.MIGU_CORE_KEY }}
+          MIGU_CLIENT_ID: ${{ secrets.MIGU_CLIENT_ID }}
+          MIGU_DEVICE_ID: ${{ secrets.MIGU_DEVICE_ID }}
+          MIGU_ACCOUNT_HEADERS_JSON: ${{ secrets.MIGU_ACCOUNT_HEADERS_JSON }}
+          MIGU_QUALITY: auto
+          OUT_DIR: ./out
+        run: |
+          test -n "$MIGU_CORE_KEY"
+          python ci/gen_playlists.py
+
+      # Pages are public. Signed stream URLs expose temporary playback capabilities.
+      # This step is intentionally opt-in via repository variable MIGU_PAGES_PUBLIC=true.
+      - name: Publish to public GitHub Pages (opt-in)
+        if: ${{ vars.MIGU_PAGES_PUBLIC == 'true' }}
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./out
+          publish_branch: gh-pages
+          commit_message: 'migu playlists: ${{ github.run_number }}'
