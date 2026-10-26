@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   build:
-    runs-on: [self-hosted, linux, x64]
+    runs-on: ubuntu-latest
     environment: MIGU_CORE_KEY
     timeout-minutes: 20
     steps:
