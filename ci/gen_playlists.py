@@ -82,6 +82,17 @@ def main():
         client_id, device_id = m._defaults()
         resolver = m.Resolver(client_id, device_id,
                               ttl=float(os.environ.get('MIGU_TTL', '3600')))
+        current_cid = [None]
+        master_urls = {}
+        original_http_get_final = m.http_get_final
+        def capture_master(url, *args, **kwargs):
+            response = original_http_get_final(url, *args, **kwargs)
+            if current_cid[0] and response[0] == 200:
+                # Keep the original GSLB entry URL for IPTV clients. Do not publish
+                # the redirected edge host (often :8080), which many players cannot reach.
+                master_urls[current_cid[0]] = url
+            return response
+        m.http_get_final = capture_master
     except Exception as e:
         print('core_load_failed:', type(e).__name__)
         return 2
@@ -89,11 +100,15 @@ def main():
     ok, failed, fatal = [], 0, 0
     for channel in channels:
         cid, name = str(channel['id']), channel['name']
+        current_cid[0] = cid
         try:
             sub, playlist = resolver.get(cid, force=True)
+            master = master_urls.get(cid)
+            if not master:
+                raise RuntimeError('missing original master URL')
             text = absolute_playlist(sub, playlist)
             atomic_write(OUT / (cid + '.m3u8'), text)
-            ok.append((cid, name, sub))
+            ok.append((cid, name, master))
             print('OK', cid)   # Never print signed URL or response body.
         except Exception as e:
             failed += 1
