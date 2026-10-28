@@ -122,9 +122,9 @@ def main():
     if not ok:
         print('summary 0', len(channels), 'failed', failed, '- previous index retained')
         return 1
-    if fatal:
+    if fatal and len(ok) < max(1, int(len(channels) * 0.60)):
         print('summary', len(ok), len(channels), 'blocked', failed - fatal,
-              'transient_failed', fatal, '- refusing to publish incomplete snapshot')
+              'transient_failed', fatal, '- success below 60%; previous index retained')
         return 1
     lines = ['#EXTM3U']
     for cid, name, sub in ok:

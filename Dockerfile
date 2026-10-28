@@ -7,6 +7,8 @@ ENV PYTHONUNBUFFERED=1 \
     OUT_DIR=/out \
     MODE=files \
     INTERVAL=3600 \
+    PORT=18765 \
+    BIND=0.0.0.0 \
     MIGU_QUALITY=compat \
     MIGU_ANDROID_TIMEOUT=8
 
