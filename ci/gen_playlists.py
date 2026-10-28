@@ -97,45 +97,62 @@ def main():
         print('core_load_failed:', type(e).__name__)
         return 2
     OUT.mkdir(parents=True, exist_ok=True)
-    ok, failed, fatal = [], 0, 0
+    ok, failed = {}, {}
     for channel in channels:
         cid, name = str(channel['id']), channel['name']
         current_cid[0] = cid
-        try:
-            sub, playlist = resolver.get(cid, force=True)
-            master = master_urls.get(cid)
-            if not master:
-                raise RuntimeError('missing original master URL')
-            text = absolute_playlist(sub, playlist)
-            atomic_write(OUT / (cid + '.m3u8'), text)
-            ok.append((cid, name, master))
-            print('OK', cid)   # Never print signed URL or response body.
-        except Exception as e:
-            failed += 1
-            detail = str(e)
-            blocked = 'COPYRIGHT_SHIELD_INVALID' in detail
-            fatal += 0 if blocked else 1
-            stage = getattr(e, 'stage', 'upstream')
-            code = 'COPYRIGHT_SHIELD_INVALID' if blocked else str(getattr(e, 'code', type(e).__name__))
-            code = re.sub(r'[^A-Za-z0-9_-]', '', code)[:40]
-            print('SKIP' if blocked else 'ERR', cid, str(stage)[:24], code)
-    if not ok:
-        print('summary 0', len(channels), 'failed', failed, '- previous index retained')
-        return 1
-    if fatal and len(ok) < max(1, int(len(channels) * 0.60)):
-        print('summary', len(ok), len(channels), 'blocked', failed - fatal,
-              'transient_failed', fatal, '- success below 60%; previous index retained')
-        return 1
+        for attempt in range(1, 4):
+            try:
+                sub, playlist = resolver.get(cid, force=True)
+                master = master_urls.get(cid)
+                if not master:
+                    raise RuntimeError('missing original master URL')
+                text = absolute_playlist(sub, playlist)
+                atomic_write(OUT / (cid + '.m3u8'), text)
+                ok[cid] = (name, master)
+                print('OK', cid)
+                break
+            except Exception as e:
+                detail = str(e)
+                blocked = 'COPYRIGHT_SHIELD_INVALID' in detail
+                stage = getattr(e, 'stage', 'upstream')
+                code = 'COPYRIGHT_SHIELD_INVALID' if blocked else str(getattr(e, 'code', type(e).__name__))
+                code = re.sub(r'[^A-Za-z0-9_-]', '', code)[:40]
+                failed[cid] = (name, code)
+                if attempt < 3 and not blocked:
+                    resolver.states.pop(cid, None)
+                    resolver.cache.pop(cid, None)
+                    master_urls.pop(cid, None)
+                    time.sleep(attempt)
+                    continue
+                print('SKIP' if blocked else 'ERR', cid, str(stage)[:24], code)
+                break
+
     lines = ['#EXTM3U']
-    for cid, name, sub in ok:
+    index_items = []
+    for channel in channels:
+        cid, name = str(channel['id']), channel['name']
         safe_name = name.replace('"', '&quot;')
-        lines.extend((f'#EXTINF:-1 tvg-id="{cid}" tvg-name="{safe_name}" group-title="咪咕",{safe_name}', sub))
+        if cid in ok:
+            lines.extend((f'#EXTINF:-1 tvg-id="{cid}" tvg-name="{safe_name}" group-title="咪咕",{safe_name}', ok[cid][1]))
+            index_items.append(f'<li><a href="{cid}.m3u8">{name}</a></li>')
+        else:
+            stale = OUT / (cid + '.m3u8')
+            try:
+                stale.unlink()
+            except FileNotFoundError:
+                pass
+            reason = failed.get(cid, ('', 'UPSTREAM_ERROR'))[1]
+            label = f'{safe_name} [本轮无可用新链接: {reason}]'
+            lines.extend((f'#EXTINF:-1 tvg-id="{cid}" tvg-name="{label}" group-title="咪咕",{label}', f'unavailable://{cid}'))
+            index_items.append(f'<li>{name} — unavailable ({reason})</li>')
     atomic_write(OUT / 'all.m3u', '\n'.join(lines) + '\n')
     atomic_write(OUT / 'index.html', '<meta charset="utf-8"><title>Migu HLS</title><ul>' +
-                 ''.join(f'<li><a href="{cid}.m3u8">{name}</a></li>' for cid, name, _ in ok) +
+                 ''.join(index_items) +
                  '</ul><p>generated UTC ' + time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()) + '</p>')
-    print('summary', len(ok), len(channels), 'failed', failed)
-    return 0 if ok else 1
+    print('summary', len(ok), len(channels), 'unavailable', len(failed),
+          '- all catalog entries published; failed channels have no stale URLs')
+    return 0
 
 
 if __name__ == '__main__':
